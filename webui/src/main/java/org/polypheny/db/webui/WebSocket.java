@@ -128,7 +128,9 @@ public class WebSocket implements Consumer<WsConfig> {
                     xidGraph = LanguageCrud.getSubGraph( Catalog.snapshot().getNamespace( graphRequest.namespace ).orElseThrow().name, graphRequest.nodeIds, crud.getTransactionManager(), ctx.session );
                 }
 
-                xIds.add( xidGraph.left.toString() );
+                if ( xidGraph.left != null ) {
+                    xIds.add( xidGraph.left.toString() );
+                }
 
                 ctx.send( xidGraph.right.toJson() );
 

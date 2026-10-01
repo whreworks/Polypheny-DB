@@ -19,6 +19,8 @@ package org.polypheny.db.adapter.neo4j.util;
 import static org.polypheny.db.adapter.neo4j.util.NeoStatements.edge_;
 import static org.polypheny.db.adapter.neo4j.util.NeoStatements.node_;
 
+import java.time.temporal.Temporal;
+import java.time.temporal.TemporalAmount;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -236,6 +238,12 @@ public interface NeoUtil {
             return new PolyList<>( value.asList( NeoUtil::getComparableOrString ) );
         } else if ( value instanceof PointValue ) {
             return asPolyGeometry( value );
+        } else {
+            // Neo4j temporal values
+            Object object = value.asObject();
+            if ( object instanceof Temporal || object instanceof TemporalAmount ) {
+                return PolyString.of( object.toString() );
+            }
         }
         throw new NotImplementedException( "Type not supported" );
     }
@@ -255,6 +263,22 @@ public interface NeoUtil {
         return o -> Pair.zip( o.fields(), functions ).stream()
                 .map( e -> e.right.apply( e.left.value() ) )
                 .toArray( PolyValue[]::new );
+    }
+
+    static String escapeCypherString( String value ) {
+        StringBuilder escaped = new StringBuilder( value.length() + 8 );
+        for ( int i = 0; i < value.length(); i++ ) {
+            char c = value.charAt( i );
+            switch ( c ) {
+                case '\\' -> escaped.append( "\\\\" );
+                case '\'' -> escaped.append( "\\'" );
+                case '\n' -> escaped.append( "\\n" );
+                case '\r' -> escaped.append( "\\r" );
+                case '\t' -> escaped.append( "\\t" );
+                default -> escaped.append( c );
+            }
+        }
+        return escaped.toString();
     }
 
     static String asParameter( long key, boolean withDollar ) {
@@ -291,7 +315,7 @@ public interface NeoUtil {
             case DECIMAL, FLOAT, REAL, DOUBLE -> literal.getValue().toString();
             case CHAR, VARCHAR -> {
                 if ( isLiteral ) {
-                    yield "'" + literal.value.asString() + "'";
+                    yield "'" + escapeCypherString( literal.value.asString().value ) + "'";
                 }
                 yield literal.value.asString().value;
 
@@ -334,7 +358,7 @@ public interface NeoUtil {
             case IS_TRUE, IS_NOT_FALSE -> o -> String.format( "%s", o.get( 0 ) );
             case IS_EMPTY -> o -> String.format( "%s = []", o.get( 0 ) );
             case IS_NOT_EMPTY -> o -> String.format( "%s <> []", o.get( 0 ) );
-            case EXISTS -> o -> String.format( "exists(%s)", o.get( 0 ) );
+            case EXISTS -> o -> String.format( "%s IS NOT NULL", o.get( 0 ) );
             case NOT -> o -> String.format( "NOT %s", o.get( 0 ) );
             case UNARY_MINUS -> o -> String.format( "-%s", o.get( 0 ) );
             case UNARY_PLUS -> o -> o.get( 0 );
@@ -387,7 +411,36 @@ public interface NeoUtil {
                 return String.format( "%s.%s", name, NeoUtil.maybeUnquote( o.get( 1 ) ) );
             };
             case CYPHER_EXTRACT_ID -> o -> String.format( " %s.id ", o.get( 0 ) );
-            case CYPHER_HAS_PROPERTY -> o -> String.format( " EXISTS(%s.%s) ", o.get( 0 ), NeoUtil.maybeUnquote( o.get( 1 ) ) );
+            case CYPHER_HAS_PROPERTY -> o -> String.format( " %s.%s IS NOT NULL ", o.get( 0 ), NeoUtil.maybeUnquote( o.get( 1 ) ) );
+            case CYPHER_TOINTEGER -> o -> String.format( " toInteger(%s) ", o.get( 0 ) );
+            case CYPHER_TOFLOAT -> o -> String.format( " toFloat(%s) ", o.get( 0 ) );
+            case CYPHER_TOSTRING -> o -> String.format( " toString(%s) ", o.get( 0 ) );
+            case CYPHER_TOBOOLEAN -> o -> String.format( " toBoolean(%s) ", o.get( 0 ) );
+            case CYPHER_TOUPPER -> o -> String.format( " toUpper(%s) ", o.get( 0 ) );
+            case CYPHER_TOLOWER -> o -> String.format( " toLower(%s) ", o.get( 0 ) );
+            case CYPHER_LTRIM -> o -> String.format( " ltrim(%s) ", o.get( 0 ) );
+            case CYPHER_RTRIM -> o -> String.format( " rtrim(%s) ", o.get( 0 ) );
+            case CYPHER_SIZE -> o -> String.format( " size(%s) ", o.get( 0 ) );
+            case CYPHER_LENGTH -> o -> String.format( " length(%s) ", o.get( 0 ) );
+            case CYPHER_HEAD -> o -> String.format( " head(%s) ", o.get( 0 ) );
+            case CYPHER_TAIL -> o -> String.format( " tail(%s) ", o.get( 0 ) );
+            case CYPHER_REVERSE -> o -> String.format( " reverse(%s) ", o.get( 0 ) );
+            case CYPHER_LOG -> o -> String.format( " log(%s) ", o.get( 0 ) );
+            case CYPHER_RANGE -> o -> String.format( " range(%s) ", String.join( ", ", o ) );
+            case CYPHER_SPLIT -> o -> String.format( " split(%s) ", String.join( ", ", o ) );
+            case CYPHER_LEFT -> o -> String.format( " left(%s) ", String.join( ", ", o ) );
+            case CYPHER_RIGHT -> o -> String.format( " range(%s) ", String.join( ", ", o ) );
+            case CYPHER_ID -> o -> String.format( " %s._id ", o.get( 0 ) );
+            case CYPHER_LABELS -> o -> String.format( " labels(%s) ", o.get( 0 ) );
+            case CYPHER_TYPE -> o -> String.format( " type(%s) ", o.get( 0 ) );
+            case CYPHER_PROPERTIES -> o -> String.format( " properties(%s) ", o.get( 0 ) );
+            case CYPHER_KEYS -> o -> String.format( " keys(%s) ", o.get( 0 ) );
+            case CYPHER_STARTNODE -> o -> String.format( " startNode(%s) ", o.get( 0 ) );
+            case CYPHER_ENDNODE -> o -> String.format( " endNode(%s) ", o.get( 0 ) );
+            case CYPHER_NODES -> o -> String.format( " nodes(%s) ", o.get( 0 ) );
+            case CYPHER_RELATIONSHIPS -> o -> String.format( " relationships(%s) ", o.get( 0 ) );
+            case SUM -> o -> String.format( " sum(%s) ", o.get( 0 ) );
+            case COLLECT -> o -> String.format( " collect(%s) ", o.get( 0 ) );
             case COUNT -> o -> String.format( "count(%s)", String.join( ",", o ) );
             case AVG -> o -> String.format( "avg(%s)", o.get( 0 ) );
             case MIN -> o -> String.format( "min(%s)", o.get( 0 ) );

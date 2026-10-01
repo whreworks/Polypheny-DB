@@ -44,7 +44,7 @@ import org.polypheny.db.type.entity.PolyString;
 import org.polypheny.db.type.entity.PolyValue;
 import org.polypheny.db.type.entity.graph.PolyDictionary;
 import org.polypheny.db.type.entity.numerical.PolyDouble;
-import org.polypheny.db.type.entity.numerical.PolyInteger;
+import org.polypheny.db.type.entity.numerical.PolyLong;
 import org.polypheny.db.type.entity.spatial.PolyGeometry;
 import org.polypheny.db.util.Pair;
 
@@ -93,7 +93,7 @@ public class CypherLiteral extends CypherExpression {
         super( pos );
         this.literalType = literalType;
         if ( literalType == Literal.DECIMAL ) {
-            this.value = Integer.parseInt( image ) * (negated ? -1 : 1);
+            this.value = Long.parseLong( image ) * (negated ? -1 : 1);
         } else if ( (literalType == Literal.DOUBLE) ) {
             this.value = Double.parseDouble( image ) * (negated ? -1 : 1);
         } else {
@@ -130,7 +130,7 @@ public class CypherLiteral extends CypherExpression {
             }
             case STRING, HEX, OCTAL -> PolyString.of( (String) value );
             case DOUBLE -> PolyDouble.of( (Double) value );
-            case DECIMAL -> PolyInteger.of( (Integer) value );
+            case DECIMAL -> PolyLong.of( (Long) value );
             case POINT -> {
                 // TODO: What do we have to do here?
                 throw new UnsupportedOperationException();
@@ -149,11 +149,14 @@ public class CypherLiteral extends CypherExpression {
         for ( String key : map.keySet() ) {
             CypherExpression value = map.get( key );
 
+            PolyValue comparable = value.getComparable();
             double doubleValue;
-            if ( value.getComparable().isInteger() ) {
-                doubleValue = value.getComparable().asInteger().intValue();
+            if ( comparable.isInteger() ) {
+                doubleValue = comparable.asInteger().intValue();
+            } else if ( comparable.isLong() ) {
+                doubleValue = comparable.asLong().longValue();
             } else {
-                doubleValue = value.getComparable().asDouble().doubleValue();
+                doubleValue = comparable.asDouble().doubleValue();
             }
 
             switch ( key ) {
@@ -215,7 +218,7 @@ public class CypherLiteral extends CypherExpression {
             case MAP, STAR, OCTAL, HEX -> throw new UnsupportedOperationException();
             case STRING -> context.rexBuilder.makeLiteral( (String) value );
             case DOUBLE -> context.rexBuilder.makeApproxLiteral( BigDecimal.valueOf( (Double) value ) );
-            case DECIMAL -> context.rexBuilder.makeExactLiteral( BigDecimal.valueOf( (Integer) value ) );
+            case DECIMAL -> context.rexBuilder.makeExactLiteral( BigDecimal.valueOf( (Long) value ) );
             case POINT -> {
                 AlgDataType dataType = context.typeFactory.createPolyType( PolyType.GEOMETRY );
                 yield context.rexBuilder.makeLiteral( PolyGeometry.of( "SRID=0;POINT(56.7 12.78)" ), dataType, false );

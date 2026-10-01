@@ -143,6 +143,7 @@ public class Neo4jPlugin extends PolyPlugin {
     @AdapterSettingInteger(name = "port", defaultValue = 7687, appliesTo = DeploySetting.REMOTE)
     @AdapterSettingString(name = "user", defaultValue = "neo4j", appliesTo = DeploySetting.REMOTE)
     @AdapterSettingString(name = "password", defaultValue = "neo4j", appliesTo = DeploySetting.REMOTE)
+    @AdapterSettingString( name = "mappingLabel", description = "mapping label", defaultValue = "", required = false)
     public static class Neo4jStore extends DataStore<GraphAdapterCatalog> {
 
         private final String DEFAULT_DATABASE = "public";
@@ -156,6 +157,7 @@ public class Neo4jPlugin extends PolyPlugin {
         private Driver db;
         private final String pass;
         private final AuthToken auth;
+        private final String mappingLabel;
         @Getter
         private NeoNamespace currentNamespace;
 
@@ -175,6 +177,15 @@ public class Neo4jPlugin extends PolyPlugin {
                 this.pass = settings.get( "password" );
             }
             this.auth = AuthTokens.basic( this.user, this.pass );
+
+            // this is used to overwrite the auto-generated labels for bulk import
+            this.mappingLabel = settings.getOrDefault( "mappingLabel", "" ).trim();
+            if ( !this.mappingLabel.isEmpty() && !this.mappingLabel.matches( "[A-Za-z_][A-Za-z0-9_]*" ) ) {
+                throw new GenericRuntimeException( "Invalid mapping label" );
+            }
+            if ( !this.mappingLabel.isEmpty() && !this.mappingLabel.endsWith( "__" ) ) {
+                throw new GenericRuntimeException( "Invalid mapping label" );
+            }
 
             if ( deployMode == DeployMode.DOCKER ) {
                 if ( settings.getOrDefault( "deploymentId", "" ).isEmpty() ) {
@@ -280,6 +291,13 @@ public class Neo4jPlugin extends PolyPlugin {
 
         public void executeDdlTrx( PolyXid session, String query ) {
             executeDdlTrx( session, List.of( query ) );
+        }
+
+        public String resolveMappingLabel( long physicalId ) {
+            if ( !mappingLabel.isEmpty() ) {
+                return mappingLabel;
+            }
+            return Neo4jPlugin.getMappingLabel( physicalId );
         }
 
 
@@ -514,14 +532,14 @@ public class Neo4jPlugin extends PolyPlugin {
                     logical,
                     allocation );
 
-            this.adapterCatalog.addPhysical( allocation, new NeoGraph( physical, List.of(), this.transactionProvider, this.db, getMappingLabel( physical.id ), this ) );
+            this.adapterCatalog.addPhysical( allocation, new NeoGraph( physical, List.of(), this.transactionProvider, this.db, resolveMappingLabel( physical.id ), this ) );
             return refreshGraph( allocation.id );
         }
 
 
         public List<PhysicalEntity> refreshGraph( long allocId ) {
             PhysicalGraph physical = adapterCatalog.fromAllocation( allocId, PhysicalGraph.class );
-            adapterCatalog.replacePhysical( new NeoGraph( physical, List.of(), this.transactionProvider, this.db, getMappingLabel( physical.id ), this ) );
+            adapterCatalog.replacePhysical( new NeoGraph( physical, List.of(), this.transactionProvider, this.db, resolveMappingLabel( physical.id ), this ) );
             return List.of( physical );
         }
 
@@ -532,7 +550,7 @@ public class Neo4jPlugin extends PolyPlugin {
             PhysicalGraph physical = adapterCatalog.fromAllocation( allocation.id, PhysicalGraph.class );
             executeDdlTrx(
                     context.getStatement().getTransaction().getXid(),
-                    String.format( "MATCH (n:%s) DETACH DELETE n", getMappingLabel( physical.id ) ) );
+                    String.format( "MATCH (n:%s) DETACH DELETE n", resolveMappingLabel( physical.id ) ) );
         }
 
 

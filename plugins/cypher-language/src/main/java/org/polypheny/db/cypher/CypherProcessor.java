@@ -18,6 +18,9 @@ package org.polypheny.db.cypher;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Deque;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.time.StopWatch;
 import org.polypheny.db.algebra.AlgDecorrelator;
@@ -150,7 +153,98 @@ public class CypherProcessor extends Processor {
 
     @Override
     public List<String> splitStatements( String statements ) {
-        return Arrays.stream( statements.split( ";" ) ).filter( q -> !q.trim().isEmpty() ).toList();
+        List<String> split = new ArrayList<>();
+        StringBuilder current = new StringBuilder();
+        Deque<Character> expectedClosings = new ArrayDeque<>();
+        char quote = 0;
+
+        for ( int i = 0; i < statements.length(); i++ ) {
+            char ch = statements.charAt( i );
+
+            if ( quote != 0 ) {
+                if ( ch == '\\' && i + 1 < statements.length() ) {
+                    current.append( ch ).append( statements.charAt( ++i ) );
+                    continue;
+                }
+                if ( ch == quote ) {
+                    if ( i + 1 < statements.length() && statements.charAt( i + 1 ) == quote ) {
+                        current.append( quote ).append( quote );
+                        i++;
+                        continue;
+                    }
+                    quote = 0;
+                }
+                current.append( ch );
+                continue;
+            }
+
+            switch ( ch ) {
+                case '\'', '"', '`' -> {
+                    quote = ch;
+                    current.append( ch );
+                }
+                case '(' -> {
+                    expectedClosings.push( ')' );
+                    current.append( ch );
+                }
+                case '[' -> {
+                    expectedClosings.push( ']' );
+                    current.append( ch );
+                }
+                case '{' -> {
+                    expectedClosings.push( '}' );
+                    current.append( ch );
+                }
+                case ')', ']', '}' -> {
+                    if ( expectedClosings.isEmpty() || expectedClosings.pop() != ch ) {
+                        throw new GenericRuntimeException( "Mismatch " + ch + "found" );
+                    }
+                    current.append( ch );
+                }
+                case ';' -> {
+                    if ( expectedClosings.isEmpty() ) {
+                        throw new GenericRuntimeException( "Missing closing '" + expectedClosings.pop() + "'" );
+                    }
+                    addIfNotBlank( split, current );
+                    current.setLength( 0 );
+                }
+                case '/' -> {
+                    if ( i + 1 < statements.length() && statements.charAt( i + 1 ) == '/' ) {
+                        while ( i + 1 < statements.length() && statements.charAt( i + 1 ) != '\n' ) {
+                            i++;
+                        }
+                        if ( i + 1 < statements.length() ) {
+                            i++;
+                        }
+                        current.append( ' ' );
+                    } else if ( i + 1 < statements.length() && statements.charAt( i + 1 ) == '*' ) {
+                        int end = statements.indexOf( "*/", i + 2 );
+                        if ( end < 0 ) {
+                            throw new GenericRuntimeException( "Unterminaed block comment" );
+                        }
+                        i = end + 1;
+                        current.append( ' ' );
+                    } else {
+                        current.append( ch );
+                    }
+                }
+                default -> current.append( ch );
+            }
+        }
+        if ( quote != 0 ) {
+            throw new GenericRuntimeException( "Unterminated " + quote );
+        }
+        if ( !expectedClosings.isEmpty() ) {
+            throw new GenericRuntimeException( "Missing closing " + expectedClosings.pop());
+        }
+        addIfNotBlank( split, current );
+        return split.stream().map( String::strip ).toList();
+    }
+
+    private static void addIfNotBlank( List<String> split, StringBuilder statement ) {
+        if ( !statement.toString().isBlank() ) {
+            split.add( statement.toString() );
+        }
     }
 
 }

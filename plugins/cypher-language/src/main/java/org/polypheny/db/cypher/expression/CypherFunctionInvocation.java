@@ -196,8 +196,27 @@ public class CypherFunctionInvocation extends CypherExpression {
             case VECTOR_DISTANCE:
                 return getVectorDistanceRex( context, type );
             default:
-                throw new NotImplementedException( "Cypher Function to alg conversion missing: " + getOperatorName() );
+                //throw new NotImplementedException( "Cypher Function to alg conversion missing: " + getOperatorName() );
+                return genericCall( context );
         }
+    }
+
+    // let's just add a generic fallback
+    private RexNode genericCall( CypherContext context ) {
+        OperatorName name = getOperatorName();
+        Operator operator = OperatorRegistry.get( QueryLanguage.from( "cypher" ), name );
+        if ( operator == null ) {
+            operator = OperatorRegistry.get( name );
+        }
+        if ( operator == null ) {
+            throw new NotImplementedException("Cypher function to alg conversion missing: " + name);
+        }
+
+        List<RexNode> operands = new ArrayList<>();
+        for ( CypherExpression arg : getArguments() ) {
+            operands.add( arg.getRex( context, RexType.PROJECT ).getRight() );
+        }
+        return context.rexBuilder.makeCall( operator, operands );
     }
 
 }

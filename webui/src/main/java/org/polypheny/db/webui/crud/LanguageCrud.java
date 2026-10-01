@@ -27,6 +27,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -243,13 +244,84 @@ public class LanguageCrud {
     }
 
 
-    public static Pair<@Nullable PolyXid, @NotNull PolyGraph> getGraph( String namespace, TransactionManager manager, Session session ) {
-        QueryLanguage language = QueryLanguage.from( "cypher" );
+    private static final int DEFAULT_GRAPH_PREVIEW_NODES = 25;
+    private static final int MAX_GRAPH_PREVIEW_NODES = 1000;
+
+    public static Pair<PolyXid, PolyGraph> getGraph( String namespace, TransactionManager manager, Session session) {
+        return getGraph( namespace, manager, session, DEFAULT_GRAPH_PREVIEW_NODES );
+    }
+
+    public static Pair<PolyXid, PolyGraph> getGraph( String namespace, TransactionManager manager, Session session, int limit ) {
         Transaction transaction = Crud.getTransaction( false, manager, Catalog.defaultUserId, Catalog.defaultNamespaceId, "getGraph" );
+        try {
+            List<PolyNode> nodes = fetchNodes(
+                    String.format( "MATCH (n) RETURN n LIMIT %d", Math.max( 1, limit ) ),
+                    namespace, manager, session, transaction );
+            PolyGraph graph = buildGraph( nodes, namespace, manager, session, transaction );
+            transaction.commit();
+            return Pair.of( transaction.getXid(), graph );
+        } catch ( Exception e ) {
+            rollbackQuietly( transaction, e );
+            throw new GenericRuntimeException( "Error while retrieving graph: " + e.getMessage(), e );
+        }
+    }
+
+
+    public static Pair<PolyXid, PolyGraph> getSubGraph( String namespace, List<String> nodeIds, TransactionManager transactionManager, Session session ) {
+        if ( nodeIds == null || nodeIds.isEmpty() ) {
+            return getGraph( namespace, transactionManager, session );
+        }
+        List<String> ids = nodeIds.stream().filter( Objects::nonNull ).distinct().limit( MAX_GRAPH_PREVIEW_NODES ).toList();
+        Transaction transaction = Crud.getTransaction( false, transactionManager, Catalog.defaultUserId, Catalog.defaultNamespaceId, "getSubGraph" );
+        try {
+            List<PolyNode> nodes = fetchNodes(
+                    "MATCH (n) WHERE " + idPredicate( "n", ids ) + " RETURN n",
+                    namespace, transactionManager, session, transaction );
+            PolyGraph graph = buildGraph( nodes, namespace, transactionManager, session, transaction );
+            transaction.commit();
+            return Pair.of( transaction.getXid(), graph );
+        } catch ( Exception e ) {
+            rollbackQuietly( transaction, e );
+            throw new GenericRuntimeException( "Error while retrieving subgraph: " + e.getMessage(), e );
+        }
+    }
+
+    private static PolyGraph buildGraph( List<PolyNode> nodes, String namespace, TransactionManager manager, Session session, Transaction transaction ) {
+        Map<PolyString, PolyNode> nodeMap = new LinkedHashMap<>();
+        for ( PolyNode node : nodes ) {
+            nodeMap.put( node.id, node );
+        }
+        Map<PolyString, PolyEdge> edgeMap = new LinkedHashMap<>();
+        if ( !nodeMap.isEmpty() ) {
+            List<String> ids = nodeMap.keySet().stream().map( id -> id.value ).toList();
+            List<PolyValue> edges = fetchValues(
+                    "MATCH (n)-[e]->(m) WHERE " + idPredicate( "n", ids ) + " AND " + idPredicate( "m", ids ) + " RETURN e",
+                    namespace, manager, session, transaction );
+            for ( PolyValue value : edges ) {
+                if ( value != null && value.isEdge() ) {
+                    PolyEdge edge = value.asEdge();
+                    edgeMap.put( edge.id, edge );
+                }
+            }
+        }
+        return new PolyGraph( PolyMap.of( nodeMap ), PolyMap.of( edgeMap ) );
+    }
+
+    private static List<PolyNode> fetchNodes( String query, String namespace, TransactionManager manager, Session session, Transaction transaction ) {
+        List<PolyNode> nodes = new ArrayList<>();
+        for ( PolyValue value : fetchValues( query, namespace, manager, session, transaction ) ) {
+            if ( value != null && value.isNode() ) {
+                nodes.add( value.asNode() );
+            }
+        }
+        return nodes;
+    }
+
+    private static List<PolyValue> fetchValues( String query, String namespace, TransactionManager manager, Session session, Transaction transaction ) {
         ImplementationContext context = LanguageManager.getINSTANCE().anyPrepareQuery(
                 QueryContext.builder()
-                        .query( "MATCH (*) RETURN *" )
-                        .language( language )
+                        .query( query )
+                        .language( QueryLanguage.from( "cypher" ) )
                         .origin( transaction.getOrigin() )
                         .namespaceId( getNamespaceIdOrDefault( namespace ) )
                         .transactionManager( manager )
@@ -257,51 +329,29 @@ public class LanguageCrud {
                         .build(), transaction ).get( 0 );
 
         if ( context.getException().isPresent() ) {
-            return Pair.of( null, new PolyGraph( PolyMap.of( new HashMap<>() ), PolyMap.of( new HashMap<>() ) ) );
+            throw new GenericRuntimeException( "Unable to prepare graph view query: " + context.getException().get().getMessage() );
         }
 
-        ResultIterator iterator = context.execute( context.getStatement() ).getIterator();
-        List<List<PolyValue>> res = iterator.getNextBatch();
-
-        try {
-            iterator.close();
-            transaction.commit();
-        } catch ( Exception e ) {
-            throw new GenericRuntimeException( "Error while committing graph retrieval query." );
+        try ( ResultIterator iterator = context.execute( context.getStatement() ).getIterator() ) {
+            List<PolyValue> values = new ArrayList<>();
+            for ( List<PolyValue> row : iterator.getNextBatch() ) {
+                values.addAll( row );
+            }
+            return values;
         }
-
-        if ( res.size() == 1 && res.get( 0 ).size() == 1 && res.get( 0 ).get( 0 ).isGraph() ) {
-
-            return Pair.of( transaction.getXid(), res.get( 0 ).get( 0 ).asGraph() );
-        }
-
-        throw new GenericRuntimeException( "Error while retrieving graph." );
     }
 
+    private static String idPredicate( String variable, List<String> ids ) {
+        return ids.stream().map(id -> String.format( "%s._id = '%s'", variable, id.replace( "\\", "\\\\" ).replace( "'", "\\'" ) ) )
+                .collect( Collectors.joining(" OR ", "(", ")"));
+    }
 
-    public static Pair<PolyXid, PolyGraph> getSubGraph( String name, List<String> nodeIds, TransactionManager transactionManager, Session session ) {
-        if ( nodeIds.isEmpty() ) {
-            return Pair.of( null, new PolyGraph( PolyMap.of( new HashMap<>() ), PolyMap.of( new HashMap<>() ) ) );
+    private static void rollbackQuietly( Transaction transaction, Exception cause ) {
+        try {
+            transaction.rollback( "Error while retrieving graph: " + cause.getMessage() );
+        } catch ( Exception e ) {
+            log.warn( "Unable to rollback the graph view transaction" );
         }
-        Pair<PolyXid, PolyGraph> graph = getGraph( name, transactionManager, session );
-        if ( graph.left == null ) {
-            return graph;
-        }
-        PolyMap<PolyString, PolyNode> nodes = PolyMap.of( new HashMap<>() );
-        PolyMap<PolyString, PolyEdge> edges = PolyMap.of( new HashMap<>() );
-        Set<PolyString> requestedNodeIds = nodeIds.stream().map( PolyString::of ).collect( Collectors.toSet() );
-        for ( Entry<PolyString, PolyNode> entry : graph.right.getNodes().entrySet() ) {
-            if ( requestedNodeIds.contains( entry.getKey() ) ) {
-                nodes.put( entry.getKey(), entry.getValue() );
-            }
-        }
-        for ( Entry<PolyString, PolyEdge> entry : graph.right.getEdges().entrySet() ) {
-            PolyEdge edge = entry.getValue();
-            if ( requestedNodeIds.contains( edge.left ) && requestedNodeIds.contains( edge.right ) ) {
-                edges.put( entry.getKey(), edge );
-            }
-        }
-        return Pair.of( graph.left, new PolyGraph( nodes, edges ) );
     }
 
 

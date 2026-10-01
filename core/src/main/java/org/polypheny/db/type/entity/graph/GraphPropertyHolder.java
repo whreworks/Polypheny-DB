@@ -20,6 +20,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import java.util.List;
 import java.util.Map.Entry;
+import java.util.HashSet;
 import lombok.Getter;
 import lombok.NonNull;
 import org.polypheny.db.type.PolyType;
@@ -62,7 +63,9 @@ public abstract class GraphPropertyHolder extends GraphObject {
 
 
     public boolean matchesLabels( PolyList<PolyString> labels ) {
-        return this.labels.equals( labels );
+        // requiring an exact match would not match imported data
+        //return this.labels.equals( labels );
+        return labels == null || labels.isEmpty() || new HashSet<>( this.labels ).containsAll( labels );
     }
 
 

@@ -1747,6 +1747,61 @@ public enum OperatorName {
 
     CYPHER_WITHIN_GEOMETRY( LangFunctionOperator.class ),
 
+    // // Cypher scalar functions
+    CYPHER_TOINTEGER( LangFunctionOperator.class ),
+
+    CYPHER_TOFLOAT( LangFunctionOperator.class ),
+
+    CYPHER_TOSTRING( LangFunctionOperator.class ),
+
+    CYPHER_TOBOOLEAN( LangFunctionOperator.class ),
+
+    CYPHER_TOUPPER( LangFunctionOperator.class ),
+
+    CYPHER_TOLOWER( LangFunctionOperator.class ),
+
+    CYPHER_LTRIM( LangFunctionOperator.class ),
+
+    CYPHER_RTRIM( LangFunctionOperator.class ),
+
+    CYPHER_SIZE( LangFunctionOperator.class ),
+
+    CYPHER_LENGTH( LangFunctionOperator.class ),
+
+    CYPHER_HEAD( LangFunctionOperator.class ),
+
+    CYPHER_TAIL( LangFunctionOperator.class ),
+
+    CYPHER_RANGE( LangFunctionOperator.class ),
+
+    CYPHER_SPLIT( LangFunctionOperator.class ),
+
+    CYPHER_REVERSE( LangFunctionOperator.class ),
+
+    CYPHER_LEFT( LangFunctionOperator.class ),
+
+    CYPHER_RIGHT( LangFunctionOperator.class ),
+
+    CYPHER_LOG( LangFunctionOperator.class ),
+
+    CYPHER_ID( LangFunctionOperator.class ),
+
+    CYPHER_LABELS( LangFunctionOperator.class ),
+
+    CYPHER_TYPE( LangFunctionOperator.class ),
+
+    CYPHER_PROPERTIES( LangFunctionOperator.class ),
+
+    CYPHER_KEYS( LangFunctionOperator.class ),
+
+    CYPHER_STARTNODE( LangFunctionOperator.class ),
+
+    CYPHER_ENDNODE( LangFunctionOperator.class ),
+
+    CYPHER_NODES( LangFunctionOperator.class ),
+
+    CYPHER_RELATIONSHIPS( LangFunctionOperator.class ),
+
     DISTANCE_NEO4J( LangFunctionOperator.class ),
 
     // CROSS MODEL FUNCTION

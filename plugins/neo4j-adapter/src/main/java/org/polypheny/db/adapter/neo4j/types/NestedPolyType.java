@@ -35,7 +35,11 @@ public abstract class NestedPolyType implements Expressible {
 
         if ( rowType instanceof ArrayType type ) {
             NestedPolyType nested = new NestedSingleType( type.getComponentType().getPolyType() );
-            for ( long i = 0; i < type.getDimension(); i++ ) {
+            // a dimension of -1 or 0 means not specified, which is one list level.
+            // looping over it directly produced a scalar descriptor, so array results were read as strings
+            // and the neo4j driver throws an exception
+            long dimension = type.getDimension() <= 0 ? 1 : type.getDimension();
+            for ( long i = 0; i < dimension; i++ ) {
                 nested = new NestedListType( PolyType.ARRAY, List.of( nested ) );
             }
             return nested;

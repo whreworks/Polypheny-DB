@@ -556,18 +556,17 @@ public interface NeoStatements {
     }
 
     static LiteralStatement string_( PolyValue value ) {
-        return new LiteralStatement( value == null || value.isNull() ? null : "'" + value + "'" );
+        if ( value == null || value.isNull() ) {
+            return new LiteralStatement( null );
+        }
+        return new LiteralStatement( "'" + NeoUtil.escapeCypherString( value.toString() ) + "'" );
     }
 
     static LiteralStatement literal_( RexLiteral literal ) {
-        String prePostFix = "";
         if ( PolyTypeFamily.CHARACTER.contains( literal.getType() ) ) {
-            prePostFix = "\"";
+            return new LiteralStatement( "'" + NeoUtil.escapeCypherString( literal.value.asString().value ) + "'" );
         }
-        return literal_( PolyString.of( String.format( "%s%s%s",
-                prePostFix,
-                NeoUtil.rexAsString( literal, null, false ),
-                prePostFix ) ) );
+        return literal_( PolyString.of( NeoUtil.rexAsString( literal, null, false ) ) );
 
     }
 

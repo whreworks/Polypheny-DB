@@ -95,6 +95,61 @@ public class CypherRegisterer {
 
         register( OperatorName.CYPHER_WITHIN_GEOMETRY, new LangFunctionOperator( "CYPHER_WITHIN_GEOMETRY", Kind.CYPHER_FUNCTION, PolyType.BOOLEAN ) );
 
+        // scalar functions
+        register( OperatorName.CYPHER_TOINTEGER, new LangFunctionOperator( "CYPHER_TOINTEGER", Kind.CYPHER_FUNCTION, PolyType.BIGINT ) );
+
+        register( OperatorName.CYPHER_TOFLOAT, new LangFunctionOperator( "CYPHER_TOFLOAT", Kind.CYPHER_FUNCTION, PolyType.DOUBLE ) );
+
+        register( OperatorName.CYPHER_TOSTRING, new LangFunctionOperator( "CYPHER_TOSTRING", Kind.CYPHER_FUNCTION, PolyType.VARCHAR ) );
+
+        register( OperatorName.CYPHER_TOBOOLEAN, new LangFunctionOperator( "CYPHER_TOBOOLEAN", Kind.CYPHER_FUNCTION, PolyType.BOOLEAN ) );
+
+        register( OperatorName.CYPHER_TOUPPER, new LangFunctionOperator( "CYPHER_TOUPPER", Kind.CYPHER_FUNCTION, PolyType.VARCHAR ) );
+
+        register( OperatorName.CYPHER_TOLOWER, new LangFunctionOperator( "CYPHER_TOLOWER", Kind.CYPHER_FUNCTION, PolyType.VARCHAR ) );
+
+        register( OperatorName.CYPHER_LTRIM, new LangFunctionOperator( "CYPHER_LTRIM", Kind.CYPHER_FUNCTION, PolyType.VARCHAR ) );
+
+        register( OperatorName.CYPHER_RTRIM, new LangFunctionOperator( "CYPHER_RTRIM", Kind.CYPHER_FUNCTION, PolyType.VARCHAR ) );
+
+        register( OperatorName.CYPHER_SIZE, new LangFunctionOperator( "CYPHER_SIZE", Kind.CYPHER_FUNCTION, PolyType.BIGINT ) );
+
+        register( OperatorName.CYPHER_LENGTH, new LangFunctionOperator( "CYPHER_LENGTH", Kind.CYPHER_FUNCTION, PolyType.BIGINT ) );
+
+        register( OperatorName.CYPHER_HEAD, new LangFunctionOperator( "CYPHER_HEAD", Kind.CYPHER_FUNCTION, PolyType.ANY ) );
+
+        register( OperatorName.CYPHER_TAIL, new LangFunctionOperator( "CYPHER_TAIL", Kind.CYPHER_FUNCTION, PolyType.ARRAY, PolyType.ANY ) );
+
+        register( OperatorName.CYPHER_RANGE, new LangFunctionOperator( "CYPHER_RANGE", Kind.CYPHER_FUNCTION, PolyType.ARRAY, PolyType.BIGINT ) );
+
+        register( OperatorName.CYPHER_SPLIT, new LangFunctionOperator( "CYPHER_SPLIT", Kind.CYPHER_FUNCTION, PolyType.ARRAY, PolyType.VARCHAR ) );
+
+        register( OperatorName.CYPHER_REVERSE, new LangFunctionOperator( "CYPHER_REVERSE", Kind.CYPHER_FUNCTION, PolyType.ANY ) );
+
+        register( OperatorName.CYPHER_LEFT, new LangFunctionOperator( "CYPHER_LEFT", Kind.CYPHER_FUNCTION, PolyType.VARCHAR ) );
+
+        register( OperatorName.CYPHER_RIGHT, new LangFunctionOperator( "CYPHER_RIGHT", Kind.CYPHER_FUNCTION, PolyType.VARCHAR ) );
+
+        register( OperatorName.CYPHER_LOG, new LangFunctionOperator( "CYPHER_LOG", Kind.CYPHER_FUNCTION, PolyType.DOUBLE ) );
+
+        register( OperatorName.CYPHER_ID, new LangFunctionOperator( "CYPHER_ID", Kind.CYPHER_FUNCTION, PolyType.VARCHAR ) );
+
+        register( OperatorName.CYPHER_LABELS, new LangFunctionOperator( "CYPHER_LABELS", Kind.CYPHER_FUNCTION, PolyType.ARRAY, PolyType.VARCHAR ) );
+
+        register( OperatorName.CYPHER_TYPE, new LangFunctionOperator( "CYPHER_TYPE", Kind.CYPHER_FUNCTION, PolyType.VARCHAR ) );
+
+        register( OperatorName.CYPHER_PROPERTIES, new LangFunctionOperator( "CYPHER_PROPERTIES", Kind.CYPHER_FUNCTION, PolyType.ANY ) );
+
+        register( OperatorName.CYPHER_KEYS, new LangFunctionOperator( "CYPHER_KEYS", Kind.CYPHER_FUNCTION, PolyType.ARRAY, PolyType.VARCHAR ) );
+
+        register( OperatorName.CYPHER_STARTNODE, new LangFunctionOperator( "CYPHER_STARTNODE", Kind.CYPHER_FUNCTION, PolyType.NODE ) );
+
+        register( OperatorName.CYPHER_ENDNODE, new LangFunctionOperator( "CYPHER_ENDNODE", Kind.CYPHER_FUNCTION, PolyType.NODE ) );
+
+        register( OperatorName.CYPHER_NODES, new LangFunctionOperator( "CYPHER_NODES", Kind.CYPHER_FUNCTION, PolyType.ARRAY, PolyType.NODE ) );
+
+        register( OperatorName.CYPHER_RELATIONSHIPS, new LangFunctionOperator( "CYPHER_RELATIONSHIPS", Kind.CYPHER_FUNCTION, PolyType.ARRAY, PolyType.EDGE ) );
+
         isInit = true;
     }
 

@@ -142,11 +142,10 @@ public class NeoGraphImplementor extends AlgShuttleImpl {
             } else if ( statement.type == StatementType.WITH ) {
                 // can replace
                 statements.remove( statements.size() - 1 );
-                if ( getLast() instanceof NeoLpgProject ) {
-                    statements.add( return_( NeoLpgModify.buildReturnProject( (LpgProject) getLast(), getGraph().mappingLabel ) ) );
-                } else {
-                    statements.add( return_( statement.statements ) );
-                }
+                // reuse the with items as they are
+                // they already carry the AS <alias> of the projection, and order by refers to those aliases
+                // rebuilding can make order by fail
+                statements.add( return_( statement.statements ) );
             } else {
                 // have to add
                 statements.add( return_( getFields( last.getTupleType() ) ) );
